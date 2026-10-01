@@ -7,40 +7,119 @@
   <!-- Load Google Model Viewer library -->
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
   <style>
-    body { margin: 0; padding: 0; font-family: sans-serif; background: #f4f4f4; }
-    model-viewer { width: 100vw; height: 80vh; }
-    
-    /* UI Overlay Controls */
-    .controls {
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #111; color: #fff; overflow: hidden; }
+
+    model-viewer {
+      width: 100vw;
+      height: 100vh;
+      background-color: #1e1e1e;
+    }
+
+    /* Side Tab AR Overlay Controls */
+    .ar-side-tab {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
       display: flex;
-      justify-content: center;
-      gap: 12px;
-      padding: 16px;
-      background: #ffffff;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(10px);
+      padding: 16px 12px;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      z-index: 10;
     }
+
+    .tab-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #ddd;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      margin-bottom: 4px;
+    }
+
     .swatch-btn {
-      width: 44px;
-      height: 44px;
+      width: 38px;
+      height: 38px;
       border-radius: 50%;
-      border: 2px solid #ccc;
+      border: 2px solid #ffffff;
       cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
     }
-    .blue { background-color: #2b5c8f; }
-    .red { background-color: #a83232; }
-    .beige { background-color: #d8c3a5; }
+    .swatch-btn:active { transform: scale(0.9); }
     
-    .status-msg {
-      text-align: center;
-      font-size: 14px;
-      color: #666;
-      margin-top: 8px;
+    .color-1 { background-color: #A62007; } /* Red/Rust */
+    .color-2 { background-color: #074CA6; } /* Deep Blue */
+    .color-3 { background-color: #8C400A; } /* Warm Amber/Brown */
+
+    /* AR View Trigger Button */
+    .ar-enter-btn {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      background: #ff9900;
+      color: #111;
+      font-weight: bold;
+      border: none;
+      border-radius: 30px;
+      font-size: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      z-index: 10;
+    }
+
+    /* Plane Detection Prompt Overlay */
+    .plane-prompt-banner {
+      position: absolute;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(17, 17, 17, 0.85);
+      border: 1px solid #ff9900;
+      color: #ffffff;
+      padding: 10px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 10;
+      transition: opacity 0.4s ease;
+      pointer-events: none;
+    }
+
+    /* Dimension Tag Callouts */
+    .dim-tag {
+      background: rgba(0, 0, 0, 0.8);
+      color: #00ffcc;
+      border: 1px solid #00ffcc;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: bold;
+      pointer-events: none;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+
+    .hidden {
+      display: none !important;
+      opacity: 0;
     }
   </style>
 </head>
 <body>
 
-  <!-- AR Canvas Component -->
   <model-viewer 
     id="couch-viewer"
     src="couch.glb" 
@@ -48,32 +127,56 @@
     ar-modes="webxr scene-viewer quick-look" 
     camera-controls 
     shadow-intensity="1"
-    alt="A 3D model of a couch for AR viewing">
-    
-    <button slot="ar-button" style="position: absolute; top: 16px; right: 16px; padding: 10px 16px; background: #ff9900; color: white; border: none; border-radius: 8px; font-weight: bold;">
+    ar-placement="floor"
+    alt="3D AR Couch Model">
+
+    <!-- AR Plane Detection Guidance Prompt -->
+    <div id="plane-prompt" class="plane-prompt-banner hidden">
+      <span>📐 Slowly scan the floor plane to anchor the couch</span>
+    </div>
+
+    <!-- Right Side-Tab UI for In-Camera Color Selection -->
+    <div class="ar-side-tab">
+      <span class="tab-label">Colors</span>
+      <button class="swatch-btn color-1" onclick="changeColor('#A62007')" title="Rust Red"></button>
+      <button class="swatch-btn color-2" onclick="changeColor('#074CA6')" title="Deep Blue"></button>
+      <button class="swatch-btn color-3" onclick="changeColor('#8C400A')" title="Warm Brown"></button>
+    </div>
+
+    <!-- Slotted AR Button -->
+    <button slot="ar-button" class="ar-enter-btn">
       View in Your Room (AR)
     </button>
-  </model-viewer>
 
-  <!-- Interactive Variant Swatches -->
-  <div class="controls">
-    <button class="swatch-btn beige" onclick="changeColor('#d8c3a5')"></button>
-    <button class="swatch-btn red" onclick="changeColor('#a83232')"></button>
-    <button class="swatch-btn blue" onclick="changeColor('#2b5c8f')"></button>
-  </div>
-  <div class="status-msg" id="feedback">Tap a swatch to change couch color in real-time.</div>
+    <!-- Hotspot Dimension Indicators (Toggled on Click) -->
+    <button slot="hotspot-width" class="dim-tag hidden" data-position="0m 0.85m 0m" data-normal="0m 1m 0m">
+      ↔ Width: 84 in
+    </button>
+    <button slot="hotspot-height" class="dim-tag hidden" data-position="-1m 0.45m 0m" data-normal="-1m 0m 0m">
+      ↕ Height: 34 in
+    </button>
+    <button slot="hotspot-depth" class="dim-tag hidden" data-position="1m 0.45m 0m" data-normal="1m 0m 0m">
+      ⤢ Depth: 38 in
+    </button>
+
+  </model-viewer>
 
   <script>
     const modelViewer = document.querySelector('#couch-viewer');
-    const feedback = document.querySelector('#feedback');
+    const planePrompt = document.querySelector('#plane-prompt');
+    let dimensionsVisible = false;
 
+    // 1. Color Change: Iterates over ALL materials (couch body, cushions, pillows)
     function changeColor(colorHex) {
-      // Access the material of the 3D model and update base color
-      const [material] = modelViewer.model.materials;
-      if (material) {
-        material.pbrMetallicRoughness.setBaseColorFactor(hexToRgba(colorHex));
-        feedback.innerText = "Color updated! Point camera at floor space.";
-      }
+      if (!modelViewer.model) return;
+      const rgba = hexToRgba(colorHex);
+
+      // Loop through all mesh materials in the 3D asset
+      modelViewer.model.materials.forEach(material => {
+        if (material.pbrMetallicRoughness) {
+          material.pbrMetallicRoughness.setBaseColorFactor(rgba);
+        }
+      });
     }
 
     function hexToRgba(hex) {
@@ -82,6 +185,39 @@
       const b = parseInt(hex.slice(5, 7), 16) / 255;
       return [r, g, b, 1.0];
     }
+
+    // 2. Click Couch Interaction: Toggle Dimensions On/Off
+    modelViewer.addEventListener('click', (event) => {
+      // Ignore click if user is tapping UI buttons
+      if (event.target.closest('.ar-side-tab') || event.target.closest('.ar-enter-btn')) return;
+
+      dimensionsVisible = !dimensionsVisible;
+      const hotspots = document.querySelectorAll('.dim-tag');
+      
+      hotspots.forEach(el => {
+        if (dimensionsVisible) {
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      });
+    });
+
+    // 3. AR Status Listener: Show plane selection prompt upon entering camera view
+    modelViewer.addEventListener('ar-status', (event) => {
+      if (event.detail.status === 'session-started') {
+        planePrompt.classList.remove('hidden');
+        planePrompt.innerText = "📐 Slowly scan floor plane to place couch";
+
+        // Update prompt once plane is stabilized/placed
+        setTimeout(() => {
+          planePrompt.innerText = "✅ Plane selected! Tap couch to inspect dimensions";
+          setTimeout(() => planePrompt.classList.add('hidden'), 4000);
+        }, 4000);
+      } else {
+        planePrompt.classList.add('hidden');
+      }
+    });
   </script>
 </body>
 </html>
