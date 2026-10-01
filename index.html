@@ -53,12 +53,18 @@
       cursor: pointer;
       transition: transform 0.2s ease, border-color 0.2s ease;
       box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
     }
     .swatch-btn:active { transform: scale(0.9); }
     
-    .color-1 { background-color: #A62007; } /* Red/Rust */
+    .color-1 { background-color: #A62007; } /* Rust Red */
     .color-2 { background-color: #074CA6; } /* Deep Blue */
-    .color-3 { background-color: #8C400A; } /* Warm Amber/Brown */
+    .color-orig { 
+      background: linear-gradient(135deg, #d8c3a5 50%, #8b7d6b 50%); /* Gradient reset icon */
+    }
 
     /* AR View Trigger Button */
     .ar-enter-btn {
@@ -98,18 +104,18 @@
       pointer-events: none;
     }
 
-    /* Dimension Tag Callouts */
+    /* Dimension Callout Badges with Arrows */
     .dim-tag {
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(0, 0, 0, 0.85);
       color: #00ffcc;
-      border: 1px solid #00ffcc;
-      padding: 6px 10px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: bold;
+      border: 1.5px solid #00ffcc;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
       pointer-events: none;
       white-space: nowrap;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     }
 
     .hidden {
@@ -138,9 +144,9 @@
     <!-- Right Side-Tab UI for In-Camera Color Selection -->
     <div class="ar-side-tab">
       <span class="tab-label">Colors</span>
-      <button class="swatch-btn color-1" onclick="changeColor('#A62007')" title="Rust Red"></button>
-      <button class="swatch-btn color-2" onclick="changeColor('#074CA6')" title="Deep Blue"></button>
-      <button class="swatch-btn color-3" onclick="changeColor('#8C400A')" title="Warm Brown"></button>
+      <button class="swatch-btn color-1" onclick="changeColor('#A62007')" title="Red (#A62007)"></button>
+      <button class="swatch-btn color-2" onclick="changeColor('#074CA6')" title="Blue (#074CA6)"></button>
+      <button class="swatch-btn color-orig" onclick="resetToOriginalColor()" title="Original Color">🔄</button>
     </div>
 
     <!-- Slotted AR Button -->
@@ -148,15 +154,15 @@
       View in Your Room (AR)
     </button>
 
-    <!-- Hotspot Dimension Indicators (Toggled on Click) -->
-    <button slot="hotspot-width" class="dim-tag hidden" data-position="0m 0.85m 0m" data-normal="0m 1m 0m">
-      ↔ Width: 84 in
+    <!-- Hotspot Dimension Indicators (Length, Breadth, Height) -->
+    <button slot="hotspot-length" class="dim-tag hidden" data-position="0m 0.85m 0m" data-normal="0m 1m 0m">
+      ⟷ Length: 84 in
+    </button>
+    <button slot="hotspot-breadth" class="dim-tag hidden" data-position="1m 0.45m 0m" data-normal="1m 0m 0m">
+      ⤢ Breadth: 38 in
     </button>
     <button slot="hotspot-height" class="dim-tag hidden" data-position="-1m 0.45m 0m" data-normal="-1m 0m 0m">
       ↕ Height: 34 in
-    </button>
-    <button slot="hotspot-depth" class="dim-tag hidden" data-position="1m 0.45m 0m" data-normal="1m 0m 0m">
-      ⤢ Depth: 38 in
     </button>
 
   </model-viewer>
@@ -165,13 +171,25 @@
     const modelViewer = document.querySelector('#couch-viewer');
     const planePrompt = document.querySelector('#plane-prompt');
     let dimensionsVisible = false;
+    let originalColors = [];
 
-    // 1. Color Change: Iterates over ALL materials (couch body, cushions, pillows)
+    // Cache the original baseColorFactor for every material (couch body + pillows)
+    modelViewer.addEventListener('load', () => {
+      if (modelViewer.model) {
+        originalColors = modelViewer.model.materials.map(material => {
+          if (material.pbrMetallicRoughness) {
+            return [...material.pbrMetallicRoughness.baseColorFactor];
+          }
+          return null;
+        });
+      }
+    });
+
+    // 1. Change color across ALL materials (couch body, cushions, pillows)
     function changeColor(colorHex) {
       if (!modelViewer.model) return;
       const rgba = hexToRgba(colorHex);
 
-      // Loop through all mesh materials in the 3D asset
       modelViewer.model.materials.forEach(material => {
         if (material.pbrMetallicRoughness) {
           material.pbrMetallicRoughness.setBaseColorFactor(rgba);
@@ -179,16 +197,26 @@
       });
     }
 
+    // Restore original color scheme for couch and pillows
+    function resetToOriginalColor() {
+      if (!modelViewer.model || originalColors.length === 0) return;
+
+      modelViewer.model.materials.forEach((material, index) => {
+        if (material.pbrMetallicRoughness && originalColors[index]) {
+          material.pbrMetallicRoughness.setBaseColorFactor(originalColors[index]);
+        }
+      });
+    }
+
     function hexToRgba(hex) {
       const r = parseInt(hex.slice(1, 3), 16) / 255;
       const g = parseInt(hex.slice(3, 5), 16) / 255;
-      const b = parseInt(hex.slice(5, 7), 16) / 255;
       return [r, g, b, 1.0];
     }
 
-    // 2. Click Couch Interaction: Toggle Dimensions On/Off
+    // 2. Click Couch Interaction: Toggle Dimensions (Length, Breadth, Height) On/Off
     modelViewer.addEventListener('click', (event) => {
-      // Ignore click if user is tapping UI buttons
+      // Ignore click if user is tapping side tab or AR launch buttons
       if (event.target.closest('.ar-side-tab') || event.target.closest('.ar-enter-btn')) return;
 
       dimensionsVisible = !dimensionsVisible;
@@ -203,15 +231,14 @@
       });
     });
 
-    // 3. AR Status Listener: Show plane selection prompt upon entering camera view
+    // 3. AR Status Listener: Floor plane selection prompt
     modelViewer.addEventListener('ar-status', (event) => {
       if (event.detail.status === 'session-started') {
         planePrompt.classList.remove('hidden');
         planePrompt.innerText = "📐 Slowly scan floor plane to place couch";
 
-        // Update prompt once plane is stabilized/placed
         setTimeout(() => {
-          planePrompt.innerText = "✅ Plane selected! Tap couch to inspect dimensions";
+          planePrompt.innerText = "✅ Plane selected! Tap couch to toggle real-time dimensions";
           setTimeout(() => planePrompt.classList.add('hidden'), 4000);
         }, 4000);
       } else {
