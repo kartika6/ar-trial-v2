@@ -8,15 +8,24 @@
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #111; color: #fff; overflow: hidden; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+      background: #111; 
+      color: #fff; 
+      overflow: hidden; 
+      width: 100vw;
+      height: 100vh;
+    }
 
+    /* Model Viewer Container fills screen */
     model-viewer {
       width: 100vw;
       height: 100vh;
       background-color: #1e1e1e;
+      position: relative;
     }
 
-    /* Side Tab AR Overlay Controls */
+    /* Side Tab AR Overlay - Rendered in BOTH 3D Object View & Camera View */
     .ar-side-tab {
       position: absolute;
       right: 16px;
@@ -26,61 +35,64 @@
       flex-direction: column;
       align-items: center;
       gap: 14px;
-      background: rgba(0, 0, 0, 0.65);
-      backdrop-filter: blur(10px);
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       padding: 16px 12px;
       border-radius: 24px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      z-index: 10;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      z-index: 100;
+      pointer-events: auto;
     }
 
     .tab-label {
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #ddd;
+      letter-spacing: 0.8px;
+      color: #eee;
       writing-mode: vertical-rl;
       transform: rotate(180deg);
       margin-bottom: 4px;
     }
 
     .swatch-btn {
-      width: 38px;
-      height: 38px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
       border: 2px solid #ffffff;
       cursor: pointer;
       transition: transform 0.2s ease, border-color 0.2s ease;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 14px;
     }
-    .swatch-btn:active { transform: scale(0.9); }
+    .swatch-btn:active { transform: scale(0.88); }
     
     .color-1 { background-color: #A62007; } /* Red (#A62007) */
     .color-2 { background-color: #074CA6; } /* Blue (#074CA6) */
     .color-orig { 
-      background: linear-gradient(135deg, #d8c3a5 50%, #8b7d6b 50%); /* Neutral split swatch for reset */
+      background: linear-gradient(135deg, #d8c3a5 50%, #8b7d6b 50%); /* Split neutral swatch */
     }
 
     /* AR View Trigger Button */
     .ar-enter-btn {
       position: absolute;
-      bottom: 24px;
+      bottom: 28px;
       left: 50%;
       transform: translateX(-50%);
-      padding: 12px 24px;
+      padding: 14px 28px;
       background: #ff9900;
       color: #111;
-      font-weight: bold;
+      font-weight: 700;
       border: none;
       border-radius: 30px;
       font-size: 15px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-      z-index: 10;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      z-index: 100;
+      pointer-events: auto;
     }
 
     /* Plane Detection Prompt Overlay */
@@ -89,22 +101,22 @@
       top: 24px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(17, 17, 17, 0.85);
+      background: rgba(17, 17, 17, 0.9);
       border: 1px solid #ff9900;
       color: #ffffff;
-      padding: 10px 18px;
+      padding: 10px 20px;
       border-radius: 20px;
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 600;
       display: flex;
       align-items: center;
       gap: 8px;
-      z-index: 10;
+      z-index: 100;
       transition: opacity 0.4s ease;
       pointer-events: none;
     }
 
-    /* Dimension Tag Callouts */
+    /* Dimension Callout Badges with Arrows */
     .dim-tag {
       background: rgba(0, 0, 0, 0.85);
       color: #00ffcc;
@@ -126,6 +138,7 @@
 </head>
 <body>
 
+  <!-- WebXR DOM Overlay Mode: All children inside <model-viewer> persist in AR Camera view -->
   <model-viewer 
     id="couch-viewer"
     src="couch.glb" 
@@ -141,7 +154,7 @@
       <span>📐 Slowly scan the floor plane to anchor the couch</span>
     </div>
 
-    <!-- Right Side-Tab UI for In-Camera Color Selection -->
+    <!-- Right Side-Tab UI (Nested inside model-viewer for camera view persistence) -->
     <div class="ar-side-tab">
       <span class="tab-label">Colors</span>
       <button class="swatch-btn color-1" onclick="changeColor('#A62007')" title="Red (#A62007)"></button>
@@ -149,7 +162,7 @@
       <button class="swatch-btn color-orig" onclick="resetToOriginalColor()" title="Original Color">🔄</button>
     </div>
 
-    <!-- Slotted AR Button -->
+    <!-- AR Camera Launch Button -->
     <button slot="ar-button" class="ar-enter-btn">
       View in Your Room (AR)
     </button>
@@ -173,7 +186,7 @@
     let dimensionsVisible = false;
     let originalColors = [];
 
-    // Store original base colors of all materials (couch body + pillows) when model loads
+    // 1. Save default color scheme for couch body + pillows as soon as 3D model loads
     modelViewer.addEventListener('load', () => {
       if (modelViewer.model) {
         originalColors = modelViewer.model.materials.map(material => {
@@ -185,7 +198,7 @@
       }
     });
 
-    // 1. Change color across ALL mesh materials (couch body, cushions, pillows)
+    // 2. Change color live across ALL materials (couch body, cushions, pillows)
     function changeColor(colorHex) {
       if (!modelViewer.model) return;
       const rgba = hexToRgba(colorHex);
@@ -197,7 +210,7 @@
       });
     }
 
-    // Restore original colors for couch and pillows
+    // Restore default texture/color scheme
     function resetToOriginalColor() {
       if (!modelViewer.model || originalColors.length === 0) return;
 
@@ -215,9 +228,9 @@
       return [r, g, b, 1.0];
     }
 
-    // 2. Click Couch Interaction: Toggle Dimensions (Length, Breadth, Height) On/Off
+    // 3. Click Couch Interaction: Toggle Real-Time Dimension Arrows On/Off
     modelViewer.addEventListener('click', (event) => {
-      // Ignore click if user is tapping side tab or AR launch buttons
+      // Prevent toggling when clicking side swatches or AR launch button
       if (event.target.closest('.ar-side-tab') || event.target.closest('.ar-enter-btn')) return;
 
       dimensionsVisible = !dimensionsVisible;
@@ -232,15 +245,15 @@
       });
     });
 
-    // 3. AR Status Listener: Floor plane selection prompt
+    // 4. AR Status Listener: Floor plane detection prompt
     modelViewer.addEventListener('ar-status', (event) => {
       if (event.detail.status === 'session-started') {
         planePrompt.classList.remove('hidden');
-        planePrompt.innerText = "📐 Slowly scan floor plane to place couch";
+        planePrompt.innerText = "📐 Slowly scan floor plane to anchor the couch";
 
         setTimeout(() => {
-          planePrompt.innerText = "✅ Plane selected! Tap couch to toggle real-time dimensions";
-          setTimeout(() => planePrompt.classList.add('hidden'), 4000);
+          planePrompt.innerText = "✅ Plane selected! Tap couch for dimensions | Use side tab to change color";
+          setTimeout(() => planePrompt.classList.add('hidden'), 5000);
         }, 4000);
       } else {
         planePrompt.classList.add('hidden');
